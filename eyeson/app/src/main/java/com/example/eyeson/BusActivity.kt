@@ -1,8 +1,13 @@
 package com.example.eyeson
 
 import android.Manifest
+import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +20,7 @@ import android.util.Log
 import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.bus_notification.*
 import java.util.*
@@ -26,10 +32,39 @@ class BusActivity : AppCompatActivity() {
     var edittool: EditText? = null // 안드로이드 xml 텍스트박스형식으로 변수 선언
     var ttsObj: TextToSpeech? = null // tts객체 선언(텍스트를 음성으로 변환)
 
+    lateinit var mqttClient: MyMqtt //mqtt클래스 변수 선언
+
     // 화면 생성 부분
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
+        mqttClient = MyMqtt(activity!!.applicationContext, "tcp://192.168.0.202:1883")
+
+        try {
+            mqttClient.setCallback(::onReceived)
+            mqttClient.connect(arrayOf<String>("iot/#"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        fun publish(data: String) {
+            //mqttClient 의 publish기능의의 메소드를 호출
+            mqttClient.publish("mydata/function", data)
+        }
+
+        fun createNotiChannel(builder: NotificationCompat.Builder, id:String){
+            //낮은 버전의 사용자에 대한 설정
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                val channel = NotificationChannel(id, "mynetworkchannel", NotificationManager.IMPORTANCE_HIGH)
+                val notificationManager = activity?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.createNotificationChannel(channel)
+                notificationManager.notify(Integer.parseInt(id),builder.build())
+            }else{
+                val notificationManager = activity?.getSystemService(Context.NOTIFICATION_SERVICE)as NotificationManager
+                notificationManager.notify(Integer.parseInt(id),builder.build())
+            }
+        }
+
         edittool = voiceText //voiceText라는 editText를 edittool에 담음.
         // tts 언어 설정(한국어 설정)
         ttsObj = TextToSpeech(this, TextToSpeech.OnInitListener {
