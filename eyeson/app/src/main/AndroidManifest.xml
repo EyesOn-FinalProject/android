@@ -10,7 +10,11 @@
 <!--    인터넷 권한과 음성기능 권한 명시 이걸 해야 앱에서 권한 요청 및 사용 가능-->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.INTERNET"/>
-    
+<!--   mqtt관련 퍼미션 설정-->
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -18,6 +22,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Eyeson">
+<!--        mqtt 서비스 등록-->
+        <service android:name="org.eclipse.paho.android.service.MqttService" />
         <activity android:name=".BusActivity"></activity>
 <!--        시작할 activity-->
         <activity android:name=".MainActivity">

@@ -2,11 +2,13 @@ package com.example.eyeson
 
 import android.Manifest
 import android.app.Activity
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -23,6 +25,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.bus_notification.*
+import org.eclipse.paho.client.mqttv3.MqttMessage
 import java.util.*
 
 class BusActivity : AppCompatActivity() {
@@ -38,31 +41,13 @@ class BusActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
-        mqttClient = MyMqtt(activity!!.applicationContext, "tcp://192.168.0.202:1883")
+        mqttClient = MyMqtt(applicationContext, "tcp://192.168.0.202:1883")
 
         try {
             mqttClient.setCallback(::onReceived)
-            mqttClient.connect(arrayOf<String>("iot/#"))
+            mqttClient.connect(arrayOf<String>("eyeson/#"))
         } catch (e: Exception) {
             e.printStackTrace()
-        }
-
-        fun publish(data: String) {
-            //mqttClient 의 publish기능의의 메소드를 호출
-            mqttClient.publish("mydata/function", data)
-        }
-
-        fun createNotiChannel(builder: NotificationCompat.Builder, id:String){
-            //낮은 버전의 사용자에 대한 설정
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-                val channel = NotificationChannel(id, "mynetworkchannel", NotificationManager.IMPORTANCE_HIGH)
-                val notificationManager = activity?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.createNotificationChannel(channel)
-                notificationManager.notify(Integer.parseInt(id),builder.build())
-            }else{
-                val notificationManager = activity?.getSystemService(Context.NOTIFICATION_SERVICE)as NotificationManager
-                notificationManager.notify(Integer.parseInt(id),builder.build())
-            }
         }
 
         edittool = voiceText //voiceText라는 editText를 edittool에 담음.
@@ -258,7 +243,7 @@ class BusActivity : AppCompatActivity() {
 //
 //                }
 //            }, 7000)
-
+            publish(busNum)
             } else if (status == 1) {
                 buttonId.text = "하차"
                 status = 2
@@ -268,6 +253,30 @@ class BusActivity : AppCompatActivity() {
             }
         }
 
+    }
+    //mqtt publish
+    fun publish(data: String) {
+        //mqttClient 의 publish기능의의 메소드를 호출
+        mqttClient.publish("eyeson/function", data)
+    }
+    fun onReceived(topic: String, message: MqttMessage) {
+        val msg = String(message.payload)
+        if(msg.equals("shocked")){
+
+        }
+    }
+    //notification사용 설정
+    fun createNotiChannel(builder: NotificationCompat.Builder, id:String){
+        //낮은 버전의 사용자에 대한 설정
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+            val channel = NotificationChannel(id, "mynetworkchannel", NotificationManager.IMPORTANCE_HIGH)
+            val notificationManager = this?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+            notificationManager.notify(Integer.parseInt(id),builder.build())
+        }else{
+            val notificationManager = this?.getSystemService(Context.NOTIFICATION_SERVICE)as NotificationManager
+            notificationManager.notify(Integer.parseInt(id),builder.build())
+        }
     }
     //권한 설정창이 끝나면
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String?>,
