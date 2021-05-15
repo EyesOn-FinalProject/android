@@ -35,6 +35,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
     var edittool: EditText? = null // 안드로이드 xml 텍스트박스형식으로 변수 선언
     var ttsObj: TextToSpeech? = null // tts객체 선언(텍스트를 음성으로 변환)
     var locationMgr: LocationManager? = null //위치기능 객체 선언
+    var id = Random().nextInt(100000) //랜덤 식별자 생성
 
     //위도,경도 담을 변수
     var latitude: Double? = null
