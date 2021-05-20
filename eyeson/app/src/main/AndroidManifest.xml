@@ -7,13 +7,15 @@
             <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
-    <!-- 인터넷 권한과 음성기능 권한 명시 이걸 해야 앱에서 권한 요청 및 사용 가능 -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+                        <!-- 인터넷 권한과 음성기능 권한 명시 이걸 해야 앱에서 권한 요청 및 사용 가능 -->
+                        <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- mqtt관련 퍼미션 설정 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 위치관련 퍼미션 설정 -->
+    <!--   COARSE는 도시 블록 내 위치 정확성(대략적위치)
+       FINE은 더 정확한 위치(블루투스를 통해 근처 기기와 연결)-->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
