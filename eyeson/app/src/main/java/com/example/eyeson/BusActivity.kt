@@ -40,20 +40,31 @@ class BusActivity : AppCompatActivity(), LocationListener {
     //위도,경도 담을 변수
     var latitude: Double? = null
     var longitude: Double? = null
+    var objintent = intent //인텐드 변수 선언
+    var obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj") //UUID_Parcelable 형태값 받아오기
+    var uu_id = obj?.uu_id //uuid 가져오기
+    //음성이 발생되면 처리하고 싶은 기능을 구현
+    val utteranceId = this.hashCode().toString() + "0"
+
+    //전역변수
+    var status = 0 //버튼 상태 변화 변수(승차,탑승완료,하차)
+    var busNum = "" //버스번호 담을 변수
+    var data: ArrayList<String> ?= null // 음성데이터 담기
+    var voiceMsg: String = "" // 음성데이터 스트링 형태
+    var btnStatus = ""
+    var error = 0
+
 
     lateinit var mqttClient: MyMqtt //mqtt클래스 변수 선언
     // 화면 생성 부분
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
-        var objintent = intent //인텐드 변수 선언
-        var obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj") //UUID_Parcelable 형태값 받아오기
-        var uu_id = obj?.uu_id //uuid 가져오기
         mqttClient = MyMqtt(applicationContext, "tcp://15.164.46.54:1883")
         locationMgr = getSystemService(Context.LOCATION_SERVICE) as LocationManager //위치서비스 쓸 변수 설정
         try {
             mqttClient.setCallback(::onReceived)
-            mqttClient.connect(arrayOf<String>("eyeson/#"))
+            mqttClient.connect(arrayOf<String>("eyeson/$uu_id"))
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -63,6 +74,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
         ttsObj = TextToSpeech(this, TextToSpeech.OnInitListener {
             if (it != TextToSpeech.ERROR) {
                 ttsObj?.language = Locale.KOREAN
+                ttsObj?.setPitch(1f) //음성톤을 기본보다 2배 올려준다.
+                ttsObj?.setSpeechRate(1f) //읽는 속도 설정
             }
         })
         //1. Permission(권한)을 먼저 체크 - 음성기능권한(RECORD_AUDIO), 위치기능권한(ACCESS_COARSE_LOCATION,ACCESS_FINE_LOCATION)
@@ -85,11 +98,6 @@ class BusActivity : AppCompatActivity(), LocationListener {
         }
 
 
-        var status = 0 //버튼 상태 변화 변수(승차,탑승완료,하차)
-        var busNum = "" //버스번호 담을 변수
-        var data: ArrayList<String> ?= null // 음성데이터 담기
-        var voiceMsg: String = "" // 음성데이터 스트링 형태
-        var btnStatus = ""
 
         //음성기능 객체 설정
         stt_intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -99,6 +107,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         //음성기능 상태에따른 설정
         var listener = (object : RecognitionListener {
             //startListening()호출 후 음성이 입력되기 전 상태
+
             override fun onReadyForSpeech(params: Bundle?) {
                 //화면에 잠깐 나왔다가 꺼지는 Toast실행
                 printToast("음성인식을 시작합니다.")
@@ -174,10 +183,6 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 voiceMsg = edittool?.text.toString()
 
 
-                //음성이 발생되면 처리하고 싶은 기능을 구현
-                val utteranceId = this.hashCode().toString() + "0"
-                ttsObj?.setPitch(1f) //음성톤을 기본보다 2배 올려준다.
-                ttsObj?.setSpeechRate(1f) //읽는 속도 설정
 
                 //버스번호를 안받았을때
                 if(busNum == "") {
@@ -208,11 +213,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     }
                 }else{ //버스번호를 받았을때
                     if (voiceMsg == "예") { //음성인식된게 "예"이면
-                        ttsObj?.speak("${busNum}번호를 승차예약합니다.", TextToSpeech.QUEUE_FLUSH, null,
-                                utteranceId)
-                        buttonId.text = "탑승 완료"
                         publish("$btnStatus/" + "$uu_id/" + "$busNum/" +"$latitude/" + "${longitude}")
-                        status = 1
                     } else if(voiceMsg in "아니오" .. "아니요") { //음성인식된게 "아니오"이면
                         ttsObj?.speak("승차예약을 취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
@@ -273,11 +274,27 @@ class BusActivity : AppCompatActivity(), LocationListener {
     //mqtt publish
     fun publish(data: String) {
         //mqttClient 의 publish기능의의 메소드를 호출
-        mqttClient.publish("eyeson/busData", data)
+        mqttClient.publish("eyeson/$uu_id", data)
     }
     fun onReceived(topic: String, message: MqttMessage) {
         val msg = String(message.payload)
         Log.d("mqtt", "$msg")
+        var msgList = msg.split("/")
+        if (msgList[0] == "bigData"){
+            if (msgList[1] == "error"){
+                ttsObj?.speak("오류로인해 예약취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
+                        utteranceId)
+                data?.clear()
+                voiceMsg = ""
+                busNum = ""
+            }else if(msgList[1] == "ok"){
+                status = 1
+                buttonId.text = "탑승 완료"
+                ttsObj?.speak("${busNum}번호를 승차예약합니다.", TextToSpeech.QUEUE_FLUSH, null,
+                        utteranceId)
+
+            }
+        }
 //        if(msg.equals("shocked")){
 //
 //        }
