@@ -22,6 +22,8 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.example.eyeson.classFile.MyMqtt
+import com.example.eyeson.dataFile.UUID_Parcelable
 import kotlinx.android.synthetic.main.bus_notification.*
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import java.io.IOException
@@ -35,7 +37,6 @@ class BusActivity : AppCompatActivity(), LocationListener {
     var edittool: EditText? = null // 안드로이드 xml 텍스트박스형식으로 변수 선언
     var ttsObj: TextToSpeech? = null // tts객체 선언(텍스트를 음성으로 변환)
     var locationMgr: LocationManager? = null //위치기능 객체 선언
-
     //위도,경도 담을 변수
     var latitude: Double? = null
     var longitude: Double? = null
@@ -45,11 +46,14 @@ class BusActivity : AppCompatActivity(), LocationListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
+        var objintent = intent //인텐드 변수 선언
+        var obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj") //UUID_Parcelable 형태값 받아오기
+        var uu_id = obj?.uu_id //uuid 가져오기
         mqttClient = MyMqtt(applicationContext, "tcp://15.164.46.54:1883")
         locationMgr = getSystemService(Context.LOCATION_SERVICE) as LocationManager //위치서비스 쓸 변수 설정
         try {
             mqttClient.setCallback(::onReceived)
-            mqttClient.connect(arrayOf<String>("eyeson/bus"))
+            mqttClient.connect(arrayOf<String>("eyeson/#"))
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -85,6 +89,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         var busNum = "" //버스번호 담을 변수
         var data: ArrayList<String> ?= null // 음성데이터 담기
         var voiceMsg: String = "" // 음성데이터 스트링 형태
+        var btnStatus = ""
 
         //음성기능 객체 설정
         stt_intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -177,14 +182,14 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 //버스번호를 안받았을때
                 if(busNum == "") {
                     //정규식을 통한 버스번호 구분구간
-                    val reg = """[-,0-9]{1,6}""".toRegex()
-                    var check : MatchResult? = reg.find("$voiceMsg")
-                    voiceMsg = ""
-                    while(check!=null){
-                        val value : String = check!!.value
-                        voiceMsg += value
-                        check = check?.next()
-                    }
+//                    val reg = """[-,0-9]{1,6}""".toRegex()
+//                    var check : MatchResult? = reg.find("$voiceMsg")
+//                    voiceMsg = ""
+//                    while(check!=null){
+//                        val value : String = check!!.value
+//                        voiceMsg += value
+//                        check = check?.next()
+//                    }
                     if(voiceMsg == ""){
                         ttsObj?.speak("버스번호를 불러주세요", TextToSpeech.QUEUE_FLUSH, null,
                                 this.hashCode().toString() + "0")
@@ -206,7 +211,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                         ttsObj?.speak("${busNum}번호를 승차예약합니다.", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
                         buttonId.text = "탑승 완료"
-                        publish("id01/" + "$busNum/" +"$latitude/" + "${longitude}")
+                        publish("$btnStatus/" + "$uu_id/" + "$busNum/" +"$latitude/" + "${longitude}")
                         status = 1
                     } else if(voiceMsg in "아니오" .. "아니요") { //음성인식된게 "아니오"이면
                         ttsObj?.speak("승차예약을 취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
@@ -236,8 +241,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         //승차 버튼 클릭 시 실행(buttonId가 승차버튼 id값)
         buttonId.setOnClickListener {
 
-
-            if (status == 0)
+            if (btnStatus == "riding")
 
             {
             // 음성인식 인스턴스 얻기
@@ -261,7 +265,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 status = 2
             } else {
                 buttonId.text = "승차"
-                status = 0
+                btnStatus = "riding"
             }
         }
 
@@ -269,7 +273,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
     //mqtt publish
     fun publish(data: String) {
         //mqttClient 의 publish기능의의 메소드를 호출
-        mqttClient.publish("eyeson/function", data)
+        mqttClient.publish("eyeson/busData", data)
     }
     fun onReceived(topic: String, message: MqttMessage) {
         val msg = String(message.payload)
