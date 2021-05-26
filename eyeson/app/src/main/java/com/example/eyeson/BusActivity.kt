@@ -40,31 +40,34 @@ class BusActivity : AppCompatActivity(), LocationListener {
     //위도,경도 담을 변수
     var latitude: Double? = null
     var longitude: Double? = null
-    var objintent = intent //인텐드 변수 선언
-    var obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj") //UUID_Parcelable 형태값 받아오기
-    var uu_id = obj?.uu_id //uuid 가져오기
-    //음성이 발생되면 처리하고 싶은 기능을 구현
-    val utteranceId = this.hashCode().toString() + "0"
 
     //전역변수
-    var status = 0 //버튼 상태 변화 변수(승차,탑승완료,하차)
     var busNum = "" //버스번호 담을 변수
     var data: ArrayList<String> ?= null // 음성데이터 담기
     var voiceMsg: String = "" // 음성데이터 스트링 형태
-    var btnStatus = ""
-    var error = 0
-
-
+    var btnStatus = "" //버튼 상태 변화 변수(승차[riding],탑승완료[boarding],하차[getOff])
+    var busStation = ""
+    var busLicenseNum = ""
+    lateinit var obj: UUID_Parcelable
+    lateinit var uuid: String
+    lateinit  var objintent:Intent //인텐드 변수 선언
     lateinit var mqttClient: MyMqtt //mqtt클래스 변수 선언
+    //음성이 발생되면 처리하고 싶은 기능을 구현
+    lateinit var utteranceId:String
+
     // 화면 생성 부분
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
+        utteranceId = this.hashCode().toString() + "0"
+        objintent = intent //인텐드 변수 선언
+        obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj")!! //UUID_Parcelable 형태값 받아오기
+        uuid = obj?.uu_id.toString() //uuid 가져오기
         mqttClient = MyMqtt(applicationContext, "tcp://15.164.46.54:1883")
         locationMgr = getSystemService(Context.LOCATION_SERVICE) as LocationManager //위치서비스 쓸 변수 설정
         try {
             mqttClient.setCallback(::onReceived)
-            mqttClient.connect(arrayOf<String>("eyeson/$uu_id"))
+            mqttClient.connect(arrayOf<String>("eyeson/#"))
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -213,7 +216,9 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     }
                 }else{ //버스번호를 받았을때
                     if (voiceMsg == "예") { //음성인식된게 "예"이면
-                        publish("$btnStatus/" + "$uu_id/" + "$busNum/" +"$latitude/" + "${longitude}")
+                        Log.d("mqtt", "onResults")
+                        publish("android/" +  "$btnStatus/" + "$busNum/" +"$latitude/" + "${longitude}")
+
                     } else if(voiceMsg in "아니오" .. "아니요") { //음성인식된게 "아니오"이면
                         ttsObj?.speak("승차예약을 취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
@@ -229,12 +234,6 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     }
                 }
 
-//                else if (voiceMsg == "음악") {
-//                    val launchIntent =
-//                            packageManager.getLaunchIntentForPackage("com.iloen.melon")
-//                    startActivity(launchIntent)
-//                    onDestroy()
-//                }
                 Log.d("recog", "onResults")
 
             }
@@ -253,19 +252,13 @@ class BusActivity : AppCompatActivity(), LocationListener {
             //음성인식 시작(stt_intent 설정한대로)
             recognizer?.startListening(stt_intent)
 
-            //핸들러를 통해 지연 시작(앞에 사전 음성인식이 끝나면 시작된다)
-//            Handler(Looper.myLooper()!!).postDelayed({
-//                if (busNum==""){
-//
-//                }else{
-//
-//                }
-//            }, 7000)
-            } else if (status == 1) {
+            } else if (btnStatus == "boarding") {
                 buttonId.text = "하차"
-                status = 2
+                publish("android/driver/" + "$btnStatus/" + "$busStation")
+                btnStatus = "getOff"
             } else {
                 buttonId.text = "승차"
+                publish("android/driver/" + "$btnStatus/" + "$busStation")
                 btnStatus = "riding"
             }
         }
@@ -274,11 +267,11 @@ class BusActivity : AppCompatActivity(), LocationListener {
     //mqtt publish
     fun publish(data: String) {
         //mqttClient 의 publish기능의의 메소드를 호출
-        mqttClient.publish("eyeson/$uu_id", data)
+        mqttClient.publish("eyeson/$uuid", data)
     }
+    //mqtt subscribe
     fun onReceived(topic: String, message: MqttMessage) {
         val msg = String(message.payload)
-        Log.d("mqtt", "$msg")
         var msgList = msg.split("/")
         if (msgList[0] == "bigData"){
             if (msgList[1] == "error"){
@@ -288,28 +281,58 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 voiceMsg = ""
                 busNum = ""
             }else if(msgList[1] == "ok"){
-                status = 1
                 buttonId.text = "탑승 완료"
-                ttsObj?.speak("${busNum}번호를 승차예약합니다.", TextToSpeech.QUEUE_FLUSH, null,
+                uuid = msgList[2]
+                busNum = msgList[3]
+                var arrival = msgList[4]
+                busLicenseNum = msgList[5]
+                busStation = msgList[6]
+                ttsObj?.speak("${busNum}번호를 승차예약합니다. $arrival", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
-
+                Log.d("mqtt", "$btnStatus")
+                publish("android/driver/" + "$btnStatus/" + "$busStation")
+                btnStatus = "boarding"
+            }else if(msgList[1] == "last"){
+                ttsObj?.speak("잠시 후 ${busNum} 버스가 도착 예정입니다. 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
+                        utteranceId)
+//                publish("android/camera/" + "on")
+//                publish("bigData/last/$busNum/$busLicenseNum")
             }
-        }
-//        if(msg.equals("shocked")){
-//
-//        }
-    }
-    //notification사용 설정
-    fun createNotiChannel(builder: NotificationCompat.Builder, id:String){
-        //낮은 버전의 사용자에 대한 설정
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-            val channel = NotificationChannel(id, "mynetworkchannel", NotificationManager.IMPORTANCE_HIGH)
-            val notificationManager = this?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-            notificationManager.notify(Integer.parseInt(id),builder.build())
-        }else{
-            val notificationManager = this?.getSystemService(Context.NOTIFICATION_SERVICE)as NotificationManager
-            notificationManager.notify(Integer.parseInt(id),builder.build())
+        }else if(msgList[0] == "ai"){
+            Log.d("mqtt", "$btnStatus")
+            if(msgList[1] == "noticeInfo"){
+                if(msgList[2] == ""){
+                    
+                }else if(msgList[2] == ""){
+
+                }else if(msgList[2] == ""){
+
+                }
+            }else if(msgList[1] == "targetBus"){
+                ttsObj?.speak("해당버스는 ${busNum} 번 버스입니다. 탑승해주십시오.", TextToSpeech.QUEUE_FLUSH, null,
+                        utteranceId)
+            }else if(msgList[1] == "doorInfo"){
+                Log.d("mqtt", "${msgList[1]}")
+                if(msgList[2] == "R"){
+                    ttsObj?.speak("오른쪽에 문이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }else if(msgList[2] == "L"){
+                    ttsObj?.speak("왼쪽에 문이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+
+                }else if(msgList[2] == "C"){
+                    ttsObj?.speak("정면에 문이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+
+                }else if(msgList[2] == "X"){
+                    ttsObj?.speak("문이 인식되지 않았습니다. 주의를 둘러봐주세요.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+
+                }else if(msgList[2] == "correctC"){
+                    ttsObj?.speak("정면에 문이 있습니다. 이 방향으로 다가가주세요.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }
+            }
         }
     }
 
