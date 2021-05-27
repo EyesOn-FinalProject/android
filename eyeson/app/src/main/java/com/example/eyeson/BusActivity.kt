@@ -67,7 +67,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         locationMgr = getSystemService(Context.LOCATION_SERVICE) as LocationManager //위치서비스 쓸 변수 설정
         try {
             mqttClient.setCallback(::onReceived)
-            mqttClient.connect(arrayOf<String>("eyeson/#"))
+            mqttClient.connect(arrayOf<String>("eyeson/$uuid"))
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -295,8 +295,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
             }else if(msgList[1] == "last"){
                 ttsObj?.speak("잠시 후 ${busNum} 버스가 도착 예정입니다. 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
-//                publish("android/camera/" + "on")
-//                publish("bigData/last/$busNum/$busLicenseNum")
+                publish("raspberry/camera/on")
+                publish("bigData/last/$busNum/$busLicenseNum")
             }
         }else if(msgList[0] == "ai"){
             Log.d("mqtt", "$btnStatus")
