@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.eyeson"
-        minSdkVersion 23
+        minSdkVersion 24
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -48,4 +48,11 @@ dependencies {
     //mqtt 관련 추가
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.0'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
+
+    // QR 코드 - Zxing 라이브러리 추가
+    implementation 'com.journeyapps:zxing-android-embedded:4.1.0'
+    implementation 'androidx.appcompat:appcompat:1.0.2'
+
+
+
 }

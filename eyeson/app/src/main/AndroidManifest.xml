@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.eyeson">
     <!-- android 11버전 이후 음성기능 사용하기 위한 설정 -->
+    <!--    qr기능 사용하기 위해 zxing라이러리 사용-->
+    <uses-sdk tools:overrideLibrary="com.google.zxing.client.android" />
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
@@ -22,6 +24,9 @@
     <!-- uuid 관련 퍼미션 설정   -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!--    qr코드 인식을 위한 카메라 퍼미 설정-->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -32,7 +37,12 @@
         <!-- mqtt 서비스 등록 -->
         <service android:name="org.eclipse.paho.android.service.MqttService" />
         <activity android:name=".MainActivity2"/>
-        <activity android:name=".BusActivity" /> <!-- 시작할 activity -->
+        <activity android:name=".BusActivity" />
+        <activity android:name=".CaptureActivity">
+            android:screenOrientation="portrait"
+            tools:replace="screenOrientation"
+        </activity>
+        <!-- 시작할 activity -->
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
