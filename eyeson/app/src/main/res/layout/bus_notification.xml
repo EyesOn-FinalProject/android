@@ -5,25 +5,38 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity"
+    android:background="@drawable/background"
     android:orientation="vertical">
+
+    <Button
+        android:id="@+id/QRcode"
+        android:layout_gravity="right"
+        android:layout_width="124px"
+        android:layout_height="125px"
+        android:layout_margin="10dp"
+        android:onClick="startBarcodeReader"
+        android:background="@drawable/qrcode" />
 
     <Space
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="4"/>
+        android:layout_weight="3"/>
+
     <EditText
         android:id="@+id/voiceText"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.AppCompat.Large"/>
+        android:layout_height="82dp"
+        android:visibility="invisible"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large" />
+
     <Button
         android:id="@+id/buttonId"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_width="1080px"
+        android:layout_height="597px"
         android:background="@drawable/button"
-        android:text="승차"
-        android:textSize="48sp"
+        android:text="승차버튼"
         android:textColor="@color/black"
-        android:layout_weight="1"/>
+        android:textSize="48sp" />
 
 </LinearLayout>

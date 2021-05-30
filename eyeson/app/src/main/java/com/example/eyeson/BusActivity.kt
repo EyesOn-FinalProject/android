@@ -17,6 +17,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.View
 import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -24,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.eyeson.classFile.MyMqtt
 import com.example.eyeson.dataFile.UUID_Parcelable
+import com.google.zxing.integration.android.IntentIntegrator
 import kotlinx.android.synthetic.main.bus_notification.*
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import java.io.IOException
@@ -52,6 +54,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
     lateinit var uuid: String
     lateinit  var objintent:Intent //인텐드 변수 선언
     lateinit var mqttClient: MyMqtt //mqtt클래스 변수 선언
+    lateinit var mqttClient2: MyMqtt //mqtt클래스 변수 선언
+
     //음성이 발생되면 처리하고 싶은 기능을 구현
     lateinit var utteranceId:String
 
@@ -68,6 +72,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         try {
             mqttClient.setCallback(::onReceived)
             mqttClient.connect(arrayOf<String>("eyeson/$uuid"))
+
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -93,7 +98,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     1000)
         } else {
             permission_state = true
-            printToast("권한 확인완료")
+//            printToast("권한 확인완료")
             //provider 를 가져올 수 있는 function call
             //location을 가져올 수 있는 funcion call
             Log.d("Location", "getLocation 실행")
@@ -214,7 +219,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                             recognizer?.startListening(stt_intent)
                         }, 5000)
                     }
-                }else{ //버스번호를 받았을때
+                }else{ //버스번호나 목적지를 받았을때
                     if (voiceMsg == "예") { //음성인식된게 "예"이면
                         Log.d("mqtt", "onResults")
                         publish("android/" +  "$btnStatus/" + "$busNum/" +"$latitude/" + "${longitude}")
@@ -225,6 +230,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
                         data?.clear()
                         voiceMsg = ""
                         busNum = ""
+                        busStation = ""
+                        busLicenseNum = ""
                     }else {
                         ttsObj?.speak("다시한번 말씀해주십시오", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
@@ -238,6 +245,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
             }
         })
+        ttsObj?.speak("아래 하단에 버스예약 버튼이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+            utteranceId)
         //승차 버튼 클릭 시 실행(buttonId가 승차버튼 id값)
         buttonId.setOnClickListener {
 
@@ -253,12 +262,17 @@ class BusActivity : AppCompatActivity(), LocationListener {
             recognizer?.startListening(stt_intent)
 
             } else if (btnStatus == "boarding") {
-                buttonId.text = "하차"
+                buttonId.text = "하차버튼"
                 publish("android/driver/" + "$btnStatus/" + "$busStation")
                 btnStatus = "getOff"
             } else {
-                buttonId.text = "승차"
+                buttonId.text = "승차버튼"
                 publish("android/driver/" + "$btnStatus/" + "$busStation")
+                data?.clear()
+                voiceMsg = ""
+                busNum = ""
+                busStation = ""
+                busLicenseNum = ""
                 btnStatus = "riding"
             }
         }
@@ -281,7 +295,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 voiceMsg = ""
                 busNum = ""
             }else if(msgList[1] == "ok"){
-                buttonId.text = "탑승 완료"
+                buttonId.text = "탑승 완료버튼"
                 uuid = msgList[2]
                 busNum = msgList[3]
                 var arrival = msgList[4]
@@ -293,10 +307,10 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 publish("android/driver/" + "$btnStatus/" + "$busStation")
                 btnStatus = "boarding"
             }else if(msgList[1] == "last"){
+                publish("raspberry/camera/on")
                 ttsObj?.speak("잠시 후 ${busNum} 버스가 도착 예정입니다. 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
-                publish("raspberry/camera/on")
-                publish("bigData/last/$busNum/$busLicenseNum")
+                publish("bigData/ai/$busNum/$busLicenseNum")
             }
         }else if(msgList[0] == "ai"){
             Log.d("mqtt", "$btnStatus")
@@ -352,7 +366,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
             latitude = currentLatLng.latitude //위도
             longitude = currentLatLng.longitude // 경도
             Log.d("Location", "$currentLatLng 현재 내 위치 값: ${latitude}, ${longitude}") //로그 찍기
-            printToast("gps데이터") // 토스트 출력(앱내 화면에 출력되었다가 사라지는 기능)
+//            printToast("gps데이터") // 토스트 출력(앱내 화면에 출력되었다가 사라지는 기능)
         } else {
             //GPS안될시 NETWORK
             currentLatLng = locationMgr?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
@@ -362,7 +376,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 latitude = currentLatLng.latitude
                 longitude = currentLatLng.longitude
                 Log.d("Location", "$currentLatLng 현재 내 위치 값: ${latitude}, ${longitude}")
-                printToast("net데이터")
+//                printToast("net데이터")
             } else {
                 //NETWORK안될시 PASSIVE
                 currentLatLng = locationMgr?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
@@ -372,7 +386,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     latitude = currentLatLng.latitude
                     longitude = currentLatLng.longitude
                     Log.d("Location", "$currentLatLng 현재 내 위치 값: ${latitude}, ${longitude}")
-                    printToast("passive데이터")
+//                    printToast("passive데이터")
                 }
             }
         }
@@ -388,12 +402,12 @@ class BusActivity : AppCompatActivity(), LocationListener {
         }
         if (mResultList != null) { //성공했을 시 데이터 출력
             Log.d("Location", mResultList[0].getAddressLine(0))
-            printToast("${mResultList[0].getAddressLine(0)}")
+//            printToast("${mResultList[0].getAddressLine(0)}")
         }
     }
 
     //location 업데이트(시간,위치 등 변환시 )
-    //locationMgr?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this) 을 통해 작동
+    //locationMgr?.requestLocationUpdates(LocationManager.PROVIDER, 3000, 0.0f, this) 을 통해 작동
     override fun onLocationChanged(location: Location) {
         Log.d("Location","체인지 진입")
         latitude = location.latitude
@@ -449,6 +463,25 @@ class BusActivity : AppCompatActivity(), LocationListener {
             recognizer?.destroy()
             recognizer?.cancel()
             recognizer = null
+        }
+    }
+    //QR코드스캐너 실행
+    fun startBarcodeReader(view: View) {
+        IntentIntegrator(this).initiateScan()
+    }
+    //돌아왔을때
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        var result = IntentIntegrator.parseActivityResult(requestCode,resultCode,data)
+
+        if(result != null){
+
+            if(result.contents != null){
+                Toast.makeText(this,"Scanned: " + result.contents, Toast.LENGTH_SHORT).show()
+            }else{
+                Toast.makeText(this,"failed",Toast.LENGTH_SHORT).show()
+            }
+        }else{
+            super.onActivityResult(requestCode, resultCode, data)
         }
     }
 }
