@@ -47,7 +47,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
     var longitude: Double? = null
 
     //전역변수
-    var Reservation = "" //버스번호 담을 변수
+    var reservation = "" //버스번호 담을 변수
     var data: ArrayList<String> ?= null // 음성데이터 담기
     var voiceMsg: String = "" // 음성데이터 스트링 형태
     var btnStatus = "riding" //버튼 상태 변화 변수(승차[riding],탑승완료[busTime],하차[getOff])
@@ -214,7 +214,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
 
                 //버스번호를 안받았을때
-                if(Reservation == "") {
+                if(reservation == "") {
                     //정규식을 통한 버스번호 구분구간
 //                    val reg = """[-,0-9]{1,6}""".toRegex()
 //                    var check : MatchResult? = reg.find("$voiceMsg")
@@ -232,9 +232,9 @@ class BusActivity : AppCompatActivity(), LocationListener {
                         }, 2000)
                     }else {
                         //음성인식된게 있으면
-                        Reservation = voiceMsg
+                        reservation = voiceMsg
                         Log.d("recog", "$voiceMsg")
-                        ttsObj?.speak("${Reservation}가 맞습니까 예 아니오로 대답해주십시오", TextToSpeech.QUEUE_FLUSH, null,
+                        ttsObj?.speak("${reservation}가 맞습니까 예 아니오로 대답해주십시오", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
                         Handler(Looper.myLooper()!!).postDelayed({
                             recognizer?.startListening(stt_intent)
@@ -243,13 +243,13 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 }else{ //버스번호나 목적지를 받았을때
                     if (voiceMsg == "예") { //음성인식된게 "예"이면
                         Log.d("mqtt", "onResults")
-                        publish("android/" +  "$btnStatus/" + "$Reservation/" +"$latitude/" + "${longitude}")
+                        publish("android/" +  "$btnStatus/" + "$reservation/" +"$latitude/" + "${longitude}")
                     } else if(voiceMsg in "아니오" .. "아니요") { //음성인식된게 "아니오"이면
                         ttsObj?.speak("승차예약을 취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
                         data?.clear()
                         voiceMsg = ""
-                        Reservation = ""
+                        reservation = ""
                         busStation = ""
                         busLicenseNum = ""
                     }else {
@@ -284,7 +284,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
             if (btnStatus == "riding")
             {
-                publish("android/busStation/" + "$latitude/" + "${longitude}")
+                publish("android/busStation/$latitude/$longitude")
 
             } else if (btnStatus == "busTime") {
                 publish("android/busTime/$target_stId/$target_busRouteId/$target_ord")
@@ -293,7 +293,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
                 data?.clear()
                 voiceMsg = ""
-                Reservation = ""
+                reservation = ""
                 busStation = ""
                 busLicenseNum = ""
                 btnStatus = "riding"
@@ -306,7 +306,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 data?.clear()
                 btnStatus = "riding"
                 voiceMsg = ""
-                Reservation = ""
+                reservation = ""
                 busStation = ""
                 busLicenseNum = ""
                 buttonId.text = "승차"
@@ -322,7 +322,6 @@ class BusActivity : AppCompatActivity(), LocationListener {
         //mqttClient 의 publish기능의의 메소드를 호출
         mqttClient.publish("eyeson/$uuid", data)
     }
-
     fun rpublish(data: String) {
         //mqttClient 의 publish기능의의 메소드를 호출
         mqttClient.publish("eyeson/$ruuid", data)
@@ -341,21 +340,20 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 data?.clear()
                 btnStatus = "riding"
                 voiceMsg = ""
-                Reservation = ""
+                reservation = ""
                 busStation = ""
                 busLicenseNum = ""
                 buttonId.text = "승차"
             }else if(msgList[1] == "ok"){
                 buttonId.text = "버스남은시간안내"
-                Reservation = msgList[2]
+                reservation = msgList[2]
                 var arrival = msgList[3]
                 busLicenseNum = msgList[4]
                 busStation = msgList[5]
                 target_stId = msgList[6]
                 target_busRouteId = msgList[7]
                 target_ord = msgList[8]
-
-                ttsObj?.speak("${Reservation}번호를 승차예약합니다. $arrival", TextToSpeech.QUEUE_FLUSH, null,
+                ttsObj?.speak("${reservation}번호를 승차예약합니다. $arrival", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
                 Log.d("mqtt", "$btnStatus")
                 publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
@@ -363,9 +361,9 @@ class BusActivity : AppCompatActivity(), LocationListener {
             }else if(msgList[1] == "last"){
                 rpublish("android/camera/on/$uuid")
                 var arrival = msgList[2]
-                ttsObj?.speak("${Reservation} $arrival 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
+                ttsObj?.speak("${reservation} $arrival 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
-                publish("android/ai/$Reservation/$busLicenseNum")
+                publish("android/ai/$reservation/$busLicenseNum")
             }else if(msgList[1] == "busStation"){
                 Log.d("mqtt", "busStation 잘 넘어옴")
                 busStation = msgList[2]
@@ -377,7 +375,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 }, 6500)
             }else if(msgList[1] == "busTime"){
                 var arrival = msgList[2]
-                ttsObj?.speak("${Reservation} 버스는 $arrival", TextToSpeech.QUEUE_FLUSH, null,
+                ttsObj?.speak("${reservation} 버스는 $arrival", TextToSpeech.QUEUE_FLUSH, null,
                     utteranceId)
             }
         }else if(msgList[0] == "ai"){
@@ -391,7 +389,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
                 }
             }else if(msgList[1] == "targetBus"){
-                ttsObj?.speak("해당버스는 ${Reservation} 번 버스입니다. 탑승해주십시오.", TextToSpeech.QUEUE_FLUSH, null,
+                ttsObj?.speak("해당버스는 ${reservation} 번 버스입니다. 탑승해주십시오.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
             }else if(msgList[1] == "doorInfo"){
                 Log.d("mqtt", "${msgList[1]}")
