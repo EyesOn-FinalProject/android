@@ -24,7 +24,10 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.room.Room
 import com.example.eyeson.classFile.MyMqtt
+import com.example.eyeson.classFile.MyTableDB
+import com.example.eyeson.classFile.RaspberryId
 import com.example.eyeson.dataFile.UUID_Parcelable
 import com.google.zxing.integration.android.IntentIntegrator
 import org.eclipse.paho.client.mqttv3.MqttMessage
@@ -47,25 +50,39 @@ class BusActivity : AppCompatActivity(), LocationListener {
     var Reservation = "" //버스번호 담을 변수
     var data: ArrayList<String> ?= null // 음성데이터 담기
     var voiceMsg: String = "" // 음성데이터 스트링 형태
-    var btnStatus = "" //버튼 상태 변화 변수(승차[riding],탑승완료[busTime],하차[getOff])
+    var btnStatus = "riding" //버튼 상태 변화 변수(승차[riding],탑승완료[busTime],하차[getOff])
     var busStation = ""
     var busLicenseNum = "" //버스차량번호
+    var ruuid = "ruuid" //라즈베리파이 고유번호
+    var androidDb:MyTableDB? = null //db객체 담을 변수
+
     lateinit var obj: UUID_Parcelable
     lateinit var uuid: String
     lateinit  var objintent:Intent //인텐드 변수 선언
     lateinit var mqttClient: MyMqtt //mqtt클래스 변수 선언
 
-    //id값 찾기
-    var buttonId = findViewById<Button>(R.id.buttonId) //id값 찾아서 담기
-    var buttonId2 = findViewById<Button>(R.id.buttonId2)
-    var voiceText = findViewById<EditText>(R.id.voiceText)
+    //남은시간안내하기위한 전역변수
+    var target_stId = ""
+    var target_busRouteId = ""
+    var target_ord = ""
+
     //음성이 발생되면 처리하고 싶은 기능을 구현
     lateinit var utteranceId:String
 
     // 화면 생성 부분
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.bus_notification)
+
+        //db객체 생성
+        androidDb = MyTableDB(this)
+        //id값 찾기
+        var buttonId = findViewById<Button>(R.id.buttonId)
+        var buttonId2 = findViewById<Button>(R.id.buttonId2)
+        var qrcode = findViewById<Button>(R.id.QRcode)
+        var voiceText = findViewById<EditText>(R.id.voiceText)
+
         utteranceId = this.hashCode().toString() + "0"
         objintent = intent //인텐드 변수 선언
         obj = objintent.getParcelableExtra<UUID_Parcelable>("uuidObj")!! //UUID_Parcelable 형태값 받아오기
@@ -224,7 +241,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                         }, 4500)
                     }
                 }else{ //버스번호나 목적지를 받았을때
-                    if (voiceMsg in "예" .. "에") { //음성인식된게 "예"이면
+                    if (voiceMsg == "예") { //음성인식된게 "예"이면
                         Log.d("mqtt", "onResults")
                         publish("android/" +  "$btnStatus/" + "$Reservation/" +"$latitude/" + "${longitude}")
                     } else if(voiceMsg in "아니오" .. "아니요") { //음성인식된게 "아니오"이면
@@ -253,6 +270,15 @@ class BusActivity : AppCompatActivity(), LocationListener {
         // 해당 인스턴스에 콜백 리스너 등록
         recognizer?.setRecognitionListener(listener)
 
+        //QR코드 실행
+        qrcode.setOnClickListener {
+            printToast(androidDb?.select().toString())
+            if (androidDb?.select().toString() == "[]" ) {
+                startBarcodeReader(it)
+            }else{
+                androidDb?.delete("아이즈온")
+            }
+        }
         //승차 버튼 클릭 시 실행
         buttonId.setOnClickListener {
 
@@ -261,8 +287,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 publish("android/busStation/" + "$latitude/" + "${longitude}")
 
             } else if (btnStatus == "busTime") {
-                publish("android/busTime/" + "$btnStatus/" + "$busStation")
-            } else {
+                publish("android/busTime/$target_stId/$target_busRouteId/$target_ord")
+            } else if (btnStatus == "getOff") {
                 buttonId.text = "승차"
                 publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
                 data?.clear()
@@ -274,14 +300,16 @@ class BusActivity : AppCompatActivity(), LocationListener {
             }
         }
         buttonId2.setOnClickListener {
-            if (btnStatus=="riding"){
+            if (btnStatus=="busTime"){
                 ttsObj?.speak("승차예약을 취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
                 data?.clear()
+                btnStatus = "riding"
                 voiceMsg = ""
                 Reservation = ""
                 busStation = ""
                 busLicenseNum = ""
+                buttonId.text = "승차"
             }else{
                 ttsObj?.speak("취소할 예약이 없습니다.", TextToSpeech.QUEUE_FLUSH, null,
                     utteranceId)
@@ -294,8 +322,16 @@ class BusActivity : AppCompatActivity(), LocationListener {
         //mqttClient 의 publish기능의의 메소드를 호출
         mqttClient.publish("eyeson/$uuid", data)
     }
+
+    fun rpublish(data: String) {
+        //mqttClient 의 publish기능의의 메소드를 호출
+        mqttClient.publish("eyeson/$ruuid", data)
+    }
     //mqtt subscribe
     fun onReceived(topic: String, message: MqttMessage) {
+        //id값 찾기
+        var buttonId = findViewById<Button>(R.id.buttonId)
+        var buttonId2 = findViewById<Button>(R.id.buttonId2)
         val msg = String(message.payload)
         var msgList = msg.split("/")
         if (msgList[0] == "bigData"){
@@ -303,35 +339,42 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 ttsObj?.speak("오류로인해 예약취소합니다.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
                 data?.clear()
+                btnStatus = "riding"
                 voiceMsg = ""
                 Reservation = ""
                 busStation = ""
                 busLicenseNum = ""
+                buttonId.text = "승차"
             }else if(msgList[1] == "ok"){
                 buttonId.text = "버스남은시간안내"
-                uuid = msgList[2]
-                Reservation = msgList[3]
-                var arrival = msgList[4]
-                busLicenseNum = msgList[5]
-                busStation = msgList[6]
+                Reservation = msgList[2]
+                var arrival = msgList[3]
+                busLicenseNum = msgList[4]
+                busStation = msgList[5]
+                target_stId = msgList[6]
+                target_busRouteId = msgList[7]
+                target_ord = msgList[8]
+
                 ttsObj?.speak("${Reservation}번호를 승차예약합니다. $arrival", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
                 Log.d("mqtt", "$btnStatus")
                 publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
                 btnStatus = "busTime"
             }else if(msgList[1] == "last"){
-                publish("raspberry/camera/on")
-                ttsObj?.speak("잠시 후 ${Reservation} 버스가 도착 예정입니다. 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
+                rpublish("android/camera/on/$uuid")
+                var arrival = msgList[2]
+                ttsObj?.speak("${Reservation} $arrival 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
-                publish("bigData/ai/$Reservation/$busLicenseNum")
+                publish("android/ai/$Reservation/$busLicenseNum")
             }else if(msgList[1] == "busStation"){
+                Log.d("mqtt", "busStation 잘 넘어옴")
                 busStation = msgList[2]
                 //음성인식 시작(stt_intent 설정한대로)
                 ttsObj?.speak("현재 정류소는 $busStation 입니다. 버스번호나 목적지정류소를 불러주세요", TextToSpeech.QUEUE_FLUSH, null,
                     utteranceId)
                 Handler(Looper.myLooper()!!).postDelayed({
                     recognizer?.startListening(stt_intent)
-                }, 5000)
+                }, 6500)
             }else if(msgList[1] == "busTime"){
                 var arrival = msgList[2]
                 ttsObj?.speak("${Reservation} 버스는 $arrival", TextToSpeech.QUEUE_FLUSH, null,
@@ -370,8 +413,9 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 }else if(msgList[2] == "correctC"){
                     ttsObj?.speak("정면에 문이 있습니다. 이 방향으로 다가가주세요.", TextToSpeech.QUEUE_FLUSH, null,
                             utteranceId)
-                    buttonId.text = "하차버튼"
                     publish("android/driver/$busLicenseNum/boarding/$busStation")
+                    buttonId.text = "하차버튼"
+                    rpublish("android/camera/off")
                     btnStatus = "getOff"
                 }
             }
@@ -504,6 +548,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
         if(result != null){
 
             if(result.contents != null){
+                var raspberryId = RaspberryId(result.contents)
+                androidDb?.insert(raspberryId)
                 Toast.makeText(this,"Scanned: " + result.contents, Toast.LENGTH_SHORT).show()
             }else{
                 Toast.makeText(this,"failed",Toast.LENGTH_SHORT).show()

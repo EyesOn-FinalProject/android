@@ -14,7 +14,6 @@
         android:layout_width="124px"
         android:layout_height="125px"
         android:layout_margin="10dp"
-        android:onClick="startBarcodeReader"
         android:background="@drawable/qrcode" />
 
     <Space

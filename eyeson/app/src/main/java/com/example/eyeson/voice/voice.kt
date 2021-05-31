@@ -9,7 +9,6 @@ import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import kotlinx.android.synthetic.main.bus_notification.*
 import java.util.*
 import kotlin.collections.ArrayList
 //
