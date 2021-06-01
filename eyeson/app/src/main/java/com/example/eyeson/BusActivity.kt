@@ -53,8 +53,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
     var btnStatus = "riding" //버튼 상태 변화 변수(승차[riding],탑승완료[busTime],하차[getOff])
     var busStation = ""
     var busLicenseNum = "" //버스차량번호
-    var ruuid = "[]" //라즈베리파이 고유번호
     var androidDb:MyTableDB? = null //db객체 담을 변수
+    var ruuid = "" // 라즈베리파이 id
 
     lateinit var obj: UUID_Parcelable
     lateinit var uuid: String
@@ -79,7 +79,12 @@ class BusActivity : AppCompatActivity(), LocationListener {
         androidDb = MyTableDB(this)
 
         //ruuid 저장
+//        var ruuidList: ArrayList<RaspberryId>? = androidDb?.select()
+//        for(i in ruuidList!!.indices){
+//            var ruuid =ruuidList[i]
+//        }
         ruuid = androidDb?.select().toString()
+        ruuid = ruuid.replace("[","").replace("]","")
 
         //스마트글래스 등록취소를 위한 플래그변수
         var glassFlag = 1
@@ -275,10 +280,10 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 }else{
                     if (voiceMsg == "예") { //음성인식된게 "예"이면
                         androidDb?.delete("$ruuid")
-                        printToast("${androidDb?.select().toString()}")
+                        printToast("${androidDb?.select().toString().replace("[","").replace("]","") }")
                         ttsObj?.speak("삭제했습니다.", TextToSpeech.QUEUE_FLUSH, null,
                                 utteranceId)
-                        ruuid = "[]"
+                        ruuid = ""
                         glassFlag = 1
                         data?.clear()
                         voiceMsg = ""
@@ -304,15 +309,12 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
         //시작 시 음성안내
 //        if(ruuid == "[]"){
-        printToast("안녕하셍ㅅ")
-        ttsObj?.speak("안녕하세요", TextToSpeech.QUEUE_FLUSH, null,
-                utteranceId)
 //        }
 
         //QR코드 실행
         qrcode.setOnClickListener {
             printToast(androidDb?.select().toString())
-            if (androidDb?.select().toString() == "[]" ) {
+            if (androidDb?.select().toString().replace("[","").replace("]","") == "" ) {
                 startBarcodeReader(it)
             }else{
                 glassFlag = 0
@@ -325,7 +327,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         }
         //승차 버튼 클릭 시 실행
         buttonId.setOnClickListener {
-            if (ruuid == "[]"){
+            if (ruuid == ""){
                 ttsObj?.speak("스마트글래스를 등록해주십시오", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
             }else{
@@ -349,7 +351,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
         }
         buttonId2.setOnClickListener {
             printToast(ruuid)
-            if (ruuid == "[]"){
+            if (ruuid == ""){
                 ttsObj?.speak("스마트글래스를 등록해주십시오", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
             }else{
@@ -413,6 +415,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
                 publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
                 btnStatus = "busTime"
             }else if(msgList[1] == "last"){
+                printToast("$ruuid")
                 rpublish("android/camera/on/$uuid")
                 var arrival = msgList[2]
                 ttsObj?.speak("${reservation} $arrival 구조물로 이동해주세요.", TextToSpeech.QUEUE_FLUSH, null,
@@ -435,13 +438,21 @@ class BusActivity : AppCompatActivity(), LocationListener {
         }else if(msgList[0] == "ai"){
             Log.d("mqtt", "$btnStatus")
             if(msgList[1] == "noticeInfo"){
-                if(msgList[2] == ""){
-                    
-                }else if(msgList[2] == ""){
-
-                }else if(msgList[2] == ""){
-
-                }
+                if(msgList[2] == "C"){
+                    ttsObj?.speak("현재방향의 정면에 구조물이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }else if(msgList[2] == "X"){
+                    ttsObj?.speak("현재시야에는 구조물이 인식되지 않습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }else if(msgList[2] == "correctC"){
+                    ttsObj?.speak("현재방향으로 가서 서주십시오.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }else if(msgList[2] == "R"){
+                    ttsObj?.speak("오른쪽에 구조물이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
+                }else if(msgList[2] == "L"){
+                    ttsObj?.speak("왼쪽에 구조물이 있습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId) }
             }else if(msgList[1] == "targetBus"){
                 ttsObj?.speak("해당버스는 ${reservation} 번 버스입니다. 탑승해주십시오.", TextToSpeech.QUEUE_FLUSH, null,
                         utteranceId)
@@ -601,7 +612,7 @@ class BusActivity : AppCompatActivity(), LocationListener {
 
             if(result.contents != null){
                 var raspberryId = RaspberryId(result.contents)
-                ruuid = raspberryId.ruuid
+                ruuid = raspberryId.ruuid.toString().replace("[","").replace("]","")
                 androidDb?.insert(raspberryId)
                 Toast.makeText(this,"등록성공", Toast.LENGTH_SHORT).show()
             }else{
