@@ -57,7 +57,7 @@ class MyTableDB {
 
     fun delete(ruuid: String) {
         //whereArgs는 whereclause에서 조건에 정의한 ?의 갯수만큼배열로 작성해야 한다.
-        mydb?.delete("mytable", "ruuid = ?", arrayOf(ruuid))
+        mydb?.delete("mytable", "ruuid=?", arrayOf(ruuid))
 
     }
 }

@@ -10,6 +10,6 @@ class RaspberryId {
     }
 
     override fun toString(): String {
-        return "RaspberryId(ruuid='$ruuid')"
+        return ruuid
     }
 }
