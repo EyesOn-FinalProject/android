@@ -24,7 +24,6 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.room.Room
 import com.example.eyeson.classFile.MyMqtt
 import com.example.eyeson.classFile.MyTableDB
 import com.example.eyeson.classFile.RaspberryId
@@ -302,16 +301,16 @@ class BusActivity : AppCompatActivity(), LocationListener {
         //QR코드 실행
         qrcode.setOnClickListener {
             //등록되어있지 않으면
-            if (androidDb?.select().toString().replace("[","").replace("]","") == "" ) {
-                startBarcodeReader(it) //큐알코드 스캐너 실행
-            }else{ //등록되어있으면 예,아니오를 통해 등록된 스마트 글래스 삭제
-                glassFlag = 0
-                ttsObj?.speak("등록된 스마트글래스를 삭제하시겠습니까?", TextToSpeech.QUEUE_FLUSH, null,
-                        utteranceId)
-                Handler(Looper.myLooper()!!).postDelayed({
-                    recognizer?.startListening(stt_intent)
-                }, 3700)
-            }
+//            if (androidDb?.select().toString().replace("[","").replace("]","") == "" ) {
+//                startBarcodeReader(it) //큐알코드 스캐너 실행
+//            }else{ //등록되어있으면 예,아니오를 통해 등록된 스마트 글래스 삭제
+//                glassFlag = 0
+            ttsObj?.speak("하차예약을 했습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                    utteranceId)
+//                Handler(Looper.myLooper()!!).postDelayed({
+//                    recognizer?.startListening(stt_intent)
+//                }, 3700)
+//            }
         }
         //승차 버튼 클릭 시 실행
         buttonId.setOnClickListener {
@@ -327,6 +326,8 @@ class BusActivity : AppCompatActivity(), LocationListener {
                     publish("android/busTime/$target_stId/$target_busRouteId/$target_ord")
                 } else if (btnStatus == "getOff") {
                     buttonId.text = "승차"
+                    ttsObj?.speak("하차예약을 했습니다.", TextToSpeech.QUEUE_FLUSH, null,
+                            utteranceId)
                     publish("android/driver/$busLicenseNum/$btnStatus/$busStation")
                     data?.clear()
                     voiceMsg = ""
